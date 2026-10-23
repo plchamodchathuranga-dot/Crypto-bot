@@ -1,11 +1,12 @@
 import os
+import requests
 import discord
 from discord.ext import commands
 from tradingview_ta import TA_Handler, Interval
 
-# Cloudflare Rate Limit (Error 1015) මඟහැරීමට User-Agent Custom Header එකක් සෙට් කිරීම
-import tradingview_ta
-tradingview_ta.TA_Handler.SESSION.headers.update({
+# Cloudflare Rate Limit (Error 1015) මඟහැරීමට Standard Requests Session එකට User-Agent Header සෙට් කිරීම
+session = requests.Session()
+session.headers.update({
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 })
 
@@ -14,7 +15,7 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# 11aall එකදුන්වන්නේ නැතහොත් භාවිතා වන default coins
+# Default coins
 DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "DOTUSDT"]
 
 def get_ta(symbol):
@@ -37,7 +38,6 @@ def get_ta(symbol):
         close = round(indicators.get("close", 0), 4)
         summary = analysis.summary.get("RECOMMENDATION", "N/A")
 
-        # Buy / Sell Signal එක ලස්සනට emoji එක්ක පෙන්වීමට
         if summary == "STRONG_BUY":
             signal = "🟢 **STRONG BUY**"
         elif summary == "BUY":
