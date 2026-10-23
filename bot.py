@@ -1,14 +1,20 @@
+import os
 import discord
 from discord.ext import commands
 from tradingview_ta import TA_Handler, Interval
-import os
+
+# Cloudflare Rate Limit (Error 1015) මඟහැරීමට User-Agent Custom Header එකක් සෙට් කිරීම
+import tradingview_ta
+tradingview_ta.TA_Handler.SESSION.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+})
 
 intents = discord.Intents.default()
 intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# !taall ගැහුවම එන්න ඕන ප්‍රධාන කොයින් ලැයිස්තුව
+# 11aall එකදුන්වන්නේ නැතහොත් භාවිතා වන default coins
 DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "DOTUSDT"]
 
 def get_ta(symbol):
@@ -21,7 +27,7 @@ def get_ta(symbol):
         )
         analysis = handler.get_analysis()
         indicators = analysis.indicators
-        
+
         rsi = round(indicators.get("RSI", 0), 2)
         macd = round(indicators.get("MACD.macd", 0), 2)
         stoch_k = round(indicators.get("Stoch.K", 0), 2)
@@ -31,7 +37,7 @@ def get_ta(symbol):
         close = round(indicators.get("close", 0), 4)
         summary = analysis.summary.get("RECOMMENDATION", "N/A")
 
-        # Buy / Sell Signal එක ලස්සනට Emojis එක්ක පෙන්වීම
+        # Buy / Sell Signal එක ලස්සනට emoji එක්ක පෙන්වීමට
         if summary == "STRONG_BUY":
             signal = "🟢 **STRONG BUY**"
         elif summary == "BUY":
@@ -41,40 +47,29 @@ def get_ta(symbol):
         elif summary == "STRONG_SELL":
             signal = "🔴 **STRONG SELL**"
         else:
-            signal = "⚪ **NEUTRAL**"
+            signal = "🟡 **NEUTRAL**"
 
-        return f"📌 **{symbol}** (Price: `${close}`)\n" \
-               f"• Signal: {signal}\n" \
-               f"• RSI (14): `{rsi}`\n" \
-               f"• MACD: `{macd}`\n" \
-               f"• Stoch RSI: K=`{stoch_k}`, D=`{stoch_d}`\n" \
-               f"• Bollinger Bands: Upper=`{bb_upper}`, Lower=`{bb_lower}`\n"
+        return f"📊 **{symbol} Analysis (1H)**\n\nPrice: `${close}`\nSignal: {signal}\n\n• RSI: `{rsi}`\n• MACD: `{macd}`\n• Stoch K/D: `{stoch_k}` / `{stoch_d}`\n• BB Upper: `{bb_upper}`\n• BB Lower: `{bb_lower}`"
     except Exception as e:
-        return f"❌ **{symbol}** සඳහා දත්ත සොයාගැනීමට නොහැකි විය. Coin Symbol එක නිවැරදිදැයි බලන්න."
+        return f"❌ Error fetching data for **{symbol}**: {e}"
 
 @bot.event
 async def on_ready():
-    print(f"Bot සූදානම්! Logged in as {bot.user}")
+    print(f"Logged in as {bot.user.name}")
 
-# ලෝකයේ ඕනෑම Coin එකක් බලන්න (!ta pepe, !ta sui, !ta btc ආදී ලෙස)
 @bot.command()
-async def ta(ctx, coin: str):
-    symbol = coin.upper()
-    if not symbol.endswith("USDT"):
-        symbol += "USDT"
-    
-    await ctx.send(f"⏳ **{symbol}** දත්ත ලබාගනිමින් පවතී...")
-    result = get_ta(symbol)
-    await ctx.send(result)
+async def ta(ctx, symbol: str = None):
+    if symbol:
+        symbol = symbol.upper()
+        if not symbol.endswith("USDT"):
+            symbol += "USDT"
+        res = get_ta(symbol)
+        await ctx.send(res)
+    else:
+        msg = "🚀 **Market Overview (1H)**\n\n"
+        for sym in DEFAULT_SYMBOLS:
+            res = get_ta(sym)
+            msg += res + "\n-------------------\n"
+        await ctx.send(msg)
 
-# ප්‍රධාන Coins එකවර බලන්න (!taall)
-@bot.command()
-async def taall(ctx):
-    await ctx.send("⏳ සියලුම කොයින්වල දත්ත ලබාගනිමින් පවතී...")
-    response = "📊 **Crypto TA Summary (1H Interval)**\n\n"
-    for sym in DEFAULT_SYMBOLS:
-        response += get_ta(sym) + "\n"
-    await ctx.send(response)
-
-# ඔබේ Discord Bot Token එක මෙතැනට දාන්න
 bot.run(os.getenv('DISCORD_TOKEN'))
